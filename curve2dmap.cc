@@ -28,6 +28,10 @@ GLFWwindow* window;
 #include "glm/gtx/string_cast.hpp"
 using namespace glm;
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+#include "stb_image_write.h"
+
 // input
 const size_t dimx = 1440;
 const size_t dimy = 360;
@@ -168,6 +172,31 @@ public:
 };
 
 std::vector<Quad> rectangles;
+
+//
+GLuint initTexture(GLubyte* data, GLint img_width, GLint img_height, GLint components)
+{
+    GLuint texture;
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    switch(components) {
+        case 1:
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, img_width, img_height, 0, GL_RED, GL_FLOAT, data);
+            break;
+        case 2:
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, img_width, img_height, 0, GL_RG, GL_FLOAT, data);
+            break;
+    };
+    
+    glEnable(GL_TEXTURE_2D);
+    return texture;
+}
 
 //
 int main(int argc, char *argv[])
