@@ -14,14 +14,14 @@
 #include <limits>
 using namespace std;
 
-// Include GLEW
+//
 #include <GL/glew.h>
 
-// Include GLFW
+//
 #include <GLFW/glfw3.h>
 GLFWwindow* window;
 
-// Include GLM
+#define GLM_FORCE_RADIANS
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
 #include "glm/gtc/type_ptr.hpp"
@@ -39,6 +39,9 @@ const size_t dimy = 360;
 // output
 const size_t width = 608;
 const size_t height = 684;
+
+// deformation RG16
+
 
 // Mouse position
 static double xpos = 0, ypos = 0;
@@ -136,12 +139,13 @@ const char* fragment_shader =
 //
 GLuint fb[2] = {std::numeric_limits<GLuint>::max(), std::numeric_limits<GLuint>::max()}; //framebuffers
 GLuint rb[2] = {std::numeric_limits<GLuint>::max(), std::numeric_limits<GLuint>::max()}; //renderbuffers, color and depth
+GLuint textures[2] = {std::numeric_limits<GLuint>::max(), std::numeric_limits<GLuint>::max()};
 
 const int PJTEX = 0; // project texture
 const int DMTEX = 1; // deformation texture
 
 //
-// Quadrilateral
+// Quadrilateral class
 //  d_______c
 //   |      |
 //   |      |
@@ -174,34 +178,15 @@ public:
 std::vector<Quad> rectangles;
 
 //
-GLuint initTexture(GLubyte* data, GLint img_width, GLint img_height, GLint components)
-{
-    GLuint texture;
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D, texture);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_DECAL);
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    switch(components) {
-        case 1:
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, img_width, img_height, 0, GL_RED, GL_FLOAT, data);
-            break;
-        case 2:
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, img_width, img_height, 0, GL_RG, GL_FLOAT, data);
-            break;
-    };
-    
-    glEnable(GL_TEXTURE_2D);
-    return texture;
-}
-
+// main func
 //
 int main(int argc, char *argv[])
 {
     //
+    //----- init
+    //
+    
+    // error check
     glfwSetErrorCallback(error_callback);
 
     // Init GLFW
@@ -249,7 +234,11 @@ int main(int argc, char *argv[])
     
     glm::mat4 mvp = projectionMatrix * viewMatrix * modelMatrix;
     
-    // Data Generated
+    //
+    //---- create input images
+    //
+    
+    // Example Data Generated
     Quad rect;
     rect.add(glm::vec2(850,0), glm::vec2(900,0), glm::vec2(900,300), glm::vec2(850,300));
     rect.setColor(glm::vec4(0,0,0,0));
@@ -306,6 +295,64 @@ int main(int argc, char *argv[])
     
     glBindVertexArray(0);
     
+    
+    //
+    //---- load deformation
+    //
+    
+    //
+    float * deform_img = NULL;
+    unsigned char *deformR = NULL, *deformG = NULL;
+    int w=0,h=0,comp=0;
+    
+    deformR = stbi_load("transformation/deformr.png", &w, &h, &comp, 0);
+    stbi_image_free(deformR);
+    deformG = stbi_load("transformation/deformg.png", &w, &h, &comp, 0);
+    stbi_image_free(deformG);
+    
+    std::cout <<" size "<<w<<" "<<h<<" "<<comp<<std::endl;
+    
+    try
+    {
+        deform_img = new float [w*h*2];
+        
+        unsigned short *pR = (unsigned short *)(deformR);
+        unsigned short *pG = (unsigned short *)(deformG);
+        
+        int offc = w*h;
+        
+        for(int j=0; j<h; j++)
+        {
+            int offy = j*w;
+            
+            for(int i=0; i<w; i++)
+            {
+                int idx = offy+i;
+                
+                deform_img[idx] = (float(pR[idx]) - 1.0)*0.1;
+                deform_img[idx+offc] = (float(pG[idx]) - 1.0)*0.1;
+            }
+        }
+        
+    }
+    catch(...)
+    {
+        std::cout<<"Fail to allocate memory for deformation"<<std::endl;
+        return -1;
+    }
+    
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, textures[1]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, width, height, 0, GL_RG, GL_FLOAT, deform_img);
+    //glUniform1i(glGetUniformLocation(shaderProgram, "tex1"), 1);
+    
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    
+    //
+    //---- Warp
     //
     while (!glfwWindowShouldClose (window)) {
         
@@ -342,7 +389,9 @@ int main(int argc, char *argv[])
         
     }
     
-    
+    //
+    //---- save output image
+    //
     
     
     // Close OpenGL window and terminate GLFW
