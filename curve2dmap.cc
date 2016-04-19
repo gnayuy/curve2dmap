@@ -99,13 +99,13 @@ static void cursorPos_callback(GLFWwindow* window, double x, double y)
     glfwGetWindowSize(window, &wnd_width, &wnd_height);
     glfwGetFramebufferSize(window, &fb_width, &fb_height);
     
-    std::cout<<"wnd size "<<wnd_width<<" "<<wnd_height<<std::endl;
-    std::cout<<"fb size "<<fb_width<<" "<<fb_height<<std::endl;
+//    std::cout<<"wnd size "<<wnd_width<<" "<<wnd_height<<std::endl;
+//    std::cout<<"fb size "<<fb_width<<" "<<fb_height<<std::endl;
     
-//    scale = (double) fb_width / (double) wnd_width;
-//    
-//    x *= scale;
-//    y *= scale;
+    scale = (double) fb_width / (double) wnd_width;
+    
+    x *= scale;
+    y *= scale;
     
     // Remember cursor position
     xpos = x;
@@ -256,7 +256,7 @@ int main(int argc, char *argv[])
     glfwSetMouseButtonCallback(window, mouseButton_callback);
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
     //glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-    glfwSetCursorPos(window, width/2, height/2);
+    //glfwSetCursorPos(window, width/2, height/2);
     
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);
@@ -365,9 +365,7 @@ int main(int argc, char *argv[])
     glDrawBuffers(1, g_drawBuffers);
     
     glBindTexture(GL_TEXTURE_2D, 0);
-    
     glBindRenderbuffer(GL_RENDERBUFFER, 0);
-    
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     
     //
@@ -378,15 +376,15 @@ int main(int argc, char *argv[])
     float * deform_img = NULL;
     loadDeform((char*)(deform_img), deformFile);
     
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, textures[DMTEX]);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, width, height, 0, GL_RG, GL_FLOAT, deform_img);
-    //glUniform1i(glGetUniformLocation(shaderProgram, "tex1"), 1);
-    
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+//    glActiveTexture(GL_TEXTURE1);
+//    glBindTexture(GL_TEXTURE_2D, textures[DMTEX]);
+//    glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, width, height, 0, GL_RG, GL_FLOAT, deform_img);
+//    //glUniform1i(glGetUniformLocation(shaderProgram, "tex1"), 1);
+//    
+//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     
     //
     //---- screen
@@ -450,21 +448,20 @@ int main(int argc, char *argv[])
         
         // 1st Pass: render an input image into an input framebuffer
 
-        
         //
         glEnable(GL_TEXTURE_2D);
-        glEnable(GL_DEPTH_TEST);
-        glDepthFunc(GL_LESS);
-        glEnable(GL_CULL_FACE);
+        //glEnable(GL_DEPTH_TEST);
+        //glDepthFunc(GL_LESS);
+        //glEnable(GL_CULL_FACE);
 
         //
         glUniformMatrix4fv(mvp_location, 1, GL_FALSE, glm::value_ptr(mvp));
         
         // render to texture
-        glBindFramebuffer(GL_FRAMEBUFFER, fb);
+//        glBindFramebuffer(GL_FRAMEBUFFER, fb);
         glViewport(0, 0, dimx, dimy);
-        glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glClearColor(0.5f, 0.5f, 0.5f, 0.0f);
+        glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         
         glUseProgram(shaderProgram);
         
@@ -476,23 +473,23 @@ int main(int argc, char *argv[])
         glDrawArrays(GL_TRIANGLES, 0, 6);
         glBindVertexArray(0);
         
-        // Render to the screen
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glViewport(0, 0, dimx, dimy);
-        glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        
-        //
-        glUseProgram(spScn);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, textures[PJTEX]);
-        glUniform1i(tex_loc, 0);
-        
-        //
-        glEnableVertexAttribArray(0);
-        glBindBuffer(GL_ARRAY_BUFFER, quad_vertexbuffer);
-        glVertexAttribPointer(pos_loc, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
-        glDisableVertexAttribArray(0);
+        // Render to screen
+//        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+//        glViewport(0, 0, dimx, dimy);
+//        glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+//        
+//        //
+//        glUseProgram(spScn);
+//        glActiveTexture(GL_TEXTURE0);
+//        glBindTexture(GL_TEXTURE_2D, textures[PJTEX]);
+//        glUniform1i(tex_loc, 0);
+//        
+//        //
+//        glEnableVertexAttribArray(0);
+//        glBindBuffer(GL_ARRAY_BUFFER, quad_vertexbuffer);
+//        glVertexAttribPointer(pos_loc, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
+//        glDrawArrays(GL_TRIANGLES, 0, 6);
+//        glDisableVertexAttribArray(0);
         
         
         // load deformation into deform texture (sampler2D)
