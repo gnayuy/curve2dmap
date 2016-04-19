@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
+#include <fstream>
 #include <string>
 #include <vector>
 #include <limits>
@@ -40,8 +41,8 @@ const size_t dimy = 360;
 const size_t width = 608;
 const size_t height = 684;
 
-// deformation RG16
-
+// deformation RG32F
+string deformFile = "transformation/deform.bin";
 
 // Mouse position
 static double xpos = 0, ypos = 0;
@@ -98,8 +99,8 @@ static void cursorPos_callback(GLFWwindow* window, double x, double y)
     glfwGetWindowSize(window, &wnd_width, &wnd_height);
     glfwGetFramebufferSize(window, &fb_width, &fb_height);
     
-    std::cout<<"size "<<wnd_width<<" "<<wnd_height<<std::endl;
-    std::cout<<"size "<<fb_width<<" "<<fb_height<<std::endl;
+    std::cout<<"wnd size "<<wnd_width<<" "<<wnd_height<<std::endl;
+    std::cout<<"fb size "<<fb_width<<" "<<fb_height<<std::endl;
     
 //    scale = (double) fb_width / (double) wnd_width;
 //    
@@ -121,8 +122,33 @@ static void mouseButton_callback(GLFWwindow* window, int button, int action, int
     }
 }
 
+int loadDeform(char *p, string fn)
+{
+    ifstream file (fn, ios::in|ios::binary|ios::ate);
+    if (file.is_open())
+    {
+        size_t size = file.tellg();
+        
+        try
+        {
+            p = new char [size];
+        }
+        catch(...)
+        {
+            std::cout<<"Fail to allocate memory for deformation"<<std::endl;
+            return -1;
+        }
+
+        file.seekg (0, ios::beg);
+        file.read (p, size);
+        file.close();
+    }
+    
+    return 0;
+}
+
 //
-const char* vertex_shader =
+const char* vertexShader =
 "attribute vec2 vPos;"
 "uniform mat4 MVP;"
 "void main () {"
@@ -130,7 +156,7 @@ const char* vertex_shader =
 "}";
 
 //
-const char* fragment_shader =
+const char* fragmentShader =
 "uniform vec4 color;"
 "void main () {"
 "  gl_FragColor = color;\n"
@@ -247,11 +273,10 @@ int main(int argc, char *argv[])
     GLuint vs;
     GLuint fs;
     GLuint shaderProgram;
-    GLuint *tex;
   
     // Create the shaders
-    vs = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vs, 1, &vertex_shader, NULL);
+    vs = glCreateShader(GL_vertexShader);
+    glShaderSource(vs, 1, &vertexShader, NULL);
     glCompileShader(vs);
     if(check_shader_compile_status(vs)==false)
     {
@@ -259,8 +284,8 @@ int main(int argc, char *argv[])
         return -1;
     }
     
-    fs = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fs, 1, &fragment_shader, NULL);
+    fs = glCreateShader(GL_fragmentShader);
+    glShaderSource(fs, 1, &fragmentShader, NULL);
     glCompileShader(fs);
     if(check_shader_compile_status(fs)==false)
     {
@@ -281,7 +306,7 @@ int main(int argc, char *argv[])
     glUniform4fv(col_location, 1, glm::value_ptr(rect.color));
     
     // vao
-    GLuint vao, vbo;
+    GLuint vao=0, vbo=0;
     
     glGenVertexArrays(1, &vao);
     glBindVertexArray( vao );
@@ -296,12 +321,12 @@ int main(int argc, char *argv[])
     glBindVertexArray(0);
     
     // fb
-    GLuint fb, db;
+    GLuint fb=0, db=0;
+    glGenFramebuffers(1, &fb);
     glBindFramebuffer(GL_FRAMEBUFFER, fb);
     
-    //
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, textures[0]);
+    glBindTexture(GL_TEXTURE_2D, textures[PJTEX]);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, dimx, dimy, 0, GL_RED, GL_FLOAT, 0);
     
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -309,10 +334,11 @@ int main(int argc, char *argv[])
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textures[0], 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textures[PJTEX], 0);
     
     glBindTexture(GL_TEXTURE_2D, 0);
     
+    glGenRenderbuffers(1, &db);
     glBindRenderbuffer(GL_RENDERBUFFER, db);
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, dimx, dimy);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, db);
@@ -327,47 +353,10 @@ int main(int argc, char *argv[])
     
     //
     float * deform_img = NULL;
-    unsigned char *deformR = NULL, *deformG = NULL;
-    int w=0,h=0,comp=0;
-    
-    deformR = stbi_load("transformation/deformr.png", &w, &h, &comp, 0);
-    stbi_image_free(deformR);
-    deformG = stbi_load("transformation/deformg.png", &w, &h, &comp, 0);
-    stbi_image_free(deformG);
-    
-    std::cout <<" size "<<w<<" "<<h<<" "<<comp<<std::endl;
-    
-    try
-    {
-        deform_img = new float [w*h*2];
-        
-        unsigned short *pR = (unsigned short *)(deformR);
-        unsigned short *pG = (unsigned short *)(deformG);
-        
-        int offc = w*h;
-        
-        for(int j=0; j<h; j++)
-        {
-            int offy = j*w;
-            
-            for(int i=0; i<w; i++)
-            {
-                int idx = offy+i;
-                
-                deform_img[idx] = (float(pR[idx]) - 1.0)*0.1;
-                deform_img[idx+offc] = (float(pG[idx]) - 1.0)*0.1;
-            }
-        }
-        
-    }
-    catch(...)
-    {
-        std::cout<<"Fail to allocate memory for deformation"<<std::endl;
-        return -1;
-    }
+    loadDeform((char*)(deform_img), deformFile);
     
     glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, textures[1]);
+    glBindTexture(GL_TEXTURE_2D, textures[DMTEX]);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, width, height, 0, GL_RG, GL_FLOAT, deform_img);
     //glUniform1i(glGetUniformLocation(shaderProgram, "tex1"), 1);
     
@@ -377,14 +366,15 @@ int main(int argc, char *argv[])
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     
     //
+    GLenum g_drawBuffers[] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
+    
+    //
     //---- Warp
     //
     while (!glfwWindowShouldClose (window)) {
         
         // 1st Pass: render an input image into an input framebuffer
-        glViewport(0, 0, dimx, dimy);
-        glClear(GL_COLOR_BUFFER_BIT);
-        glClearColor(0.5f, 0.5f, 0.5f, 0.0f);
+
         
         // Enable depth test
         //glEnable(GL_DEPTH_TEST);
@@ -398,12 +388,17 @@ int main(int argc, char *argv[])
         
         glUniformMatrix4fv(mvp_location, 1, GL_FALSE, glm::value_ptr(mvp));
         
+        glBindFramebuffer(GL_FRAMEBUFFER, fb);
+        glViewport(0, 0, dimx, dimy);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glClearColor(0.5f, 0.5f, 0.5f, 0.0f);
+        
         glBindVertexArray(vao);
         glDrawArrays(GL_TRIANGLES, 0, 6);
         glBindVertexArray(0);
         
-        
-        
+        //glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
         
         // load deformation into deform texture (sampler2D)
         
@@ -417,6 +412,24 @@ int main(int argc, char *argv[])
     //
     //---- save output image
     //
+    
+    
+    
+    // Delete allocated resources
+    glDeleteProgram(shaderProgram);
+    glDeleteShader(fragmentShader);
+    glDeleteShader(vertexShader);
+    glDeleteTextures(2, textures);
+    glDeleteFramebuffers(1, &fb);
+    glDeleteRenderbuffers(1, &db);
+    glDeleteBuffers(1, &vbo);
+    glDeleteVertexArrays(1, &vao);
+    
+    if(deform_img)
+    {
+        delete []deform_img;
+        deform_img = NULL;
+    }
     
     
     // Close OpenGL window and terminate GLFW
