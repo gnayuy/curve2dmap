@@ -147,18 +147,30 @@ int loadDeform(char *p, string fn)
     return 0;
 }
 
-//
+// draw input image
 const char* vertexShader =
 "attribute vec2 vPos;"
 "uniform mat4 MVP;"
-"varying vec2 texcoord;"
 "void main () {"
 "  gl_Position = MVP * vec4(vPos, 0.0, 1.0);"
-"  texcoord = vPos;"
 "}";
 
-//
 const char* fragmentShader =
+"uniform vec4 color;"
+"void main () {"
+"  gl_FragColor = color;\n"
+"}";
+
+// render to screen
+const char* vsScreen =
+"attribute vec2 vPos;"
+"varying vec2 texcoord;"
+"void main () {"
+"  gl_Position = vec4(vPos, 0.0, 1.0);"
+"  texcoord = (vPos+vec2(1,1))/2.0;"
+"}";
+
+const char* fsScreen =
 "uniform vec4 color;"
 "uniform sampler2D tex0;"
 "varying vec2 texcoord;"
@@ -311,7 +323,6 @@ int main(int argc, char *argv[])
     GLuint mvp_location = glGetUniformLocation(shaderProgram, "MVP");
     GLuint pos_location = glGetAttribLocation(shaderProgram, "vPos");
     GLuint col_location = glGetUniformLocation(shaderProgram, "color");
-    GLuint tex_location  = glGetUniformLocation(shaderProgram, "tex0");
     
     glUniform4fv(col_location, 1, glm::value_ptr(rect.color));
     
@@ -377,7 +388,60 @@ int main(int argc, char *argv[])
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     
+    //
+    //---- screen
+    //
+    
+    //glReadBuffer(GL_NONE);
+    //glDrawBuffer(GL_COLOR_ATTACHMENT0);
+    
+    //
+    GLuint vsScn;
+    GLuint fsScn;
+    GLuint spScn;
+    
+    // Create the shaders
+    vsScn = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vsScn, 1, &vsScreen, NULL);
+    glCompileShader(vsScn);
+    if(check_shader_compile_status(vsScn)==false)
+    {
+        std::cout<<"Fail to compile screen vertex shader"<<std::endl;
+        return -1;
+    }
+    
+    fsScn = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fsScn, 1, &fsScreen, NULL);
+    glCompileShader(fsScn);
+    if(check_shader_compile_status(fsScn)==false)
+    {
+        std::cout<<"Fail to compile screen fragment shader"<<std::endl;
+        return -1;
+    }
+    
+    //
+    spScn = glCreateProgram();
+    glAttachShader(spScn, fs);
+    glAttachShader(spScn, vs);
+    glLinkProgram(spScn);
+    
+    GLuint pos_loc = glGetAttribLocation(spScn, "vPos");
+    GLuint tex_loc  = glGetUniformLocation(spScn, "tex0");
 
+    // The fullscreen quad
+    static const GLfloat g_quad_vertex_buffer_data[] = {
+        -1.0f, -1.0f,
+        1.0f, -1.0f,
+        -1.0f,  1.0f,
+        -1.0f,  1.0f,
+        1.0f, -1.0f,
+        1.0f,  1.0f,
+    };
+    
+    GLuint quad_vertexbuffer;
+    glGenBuffers(1, &quad_vertexbuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, quad_vertexbuffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(g_quad_vertex_buffer_data), g_quad_vertex_buffer_data, GL_STATIC_DRAW);
     
     //
     //---- Warp
@@ -387,35 +451,49 @@ int main(int argc, char *argv[])
         // 1st Pass: render an input image into an input framebuffer
 
         
-        // Enable depth test
-        //glEnable(GL_DEPTH_TEST);
-        // Accept fragment if it closer to the camera than the former one
-        //glDepthFunc(GL_LESS);
-        
-        // Cull triangles which normal is not towards the camera
-        //glEnable(GL_CULL_FACE);
-        
-        
-        
+        //
+        glEnable(GL_TEXTURE_2D);
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(GL_LESS);
+        glEnable(GL_CULL_FACE);
+
+        //
         glUniformMatrix4fv(mvp_location, 1, GL_FALSE, glm::value_ptr(mvp));
         
+        // render to texture
         glBindFramebuffer(GL_FRAMEBUFFER, fb);
         glViewport(0, 0, dimx, dimy);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glClearColor(0.5f, 0.5f, 0.5f, 0.0f);
         
         glUseProgram(shaderProgram);
         
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, textures[PJTEX]);
-        glUniform1i(tex_location, 0);
+//        glActiveTexture(GL_TEXTURE0);
+//        glBindTexture(GL_TEXTURE_2D, textures[PJTEX]);
+//        glUniform1i(tex_loc, 0);
         
         glBindVertexArray(vao);
         glDrawArrays(GL_TRIANGLES, 0, 6);
         glBindVertexArray(0);
         
-        //glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
+        // Render to the screen
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glViewport(0, 0, dimx, dimy);
+        glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        
+        //
+        glUseProgram(spScn);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, textures[PJTEX]);
+        glUniform1i(tex_loc, 0);
+        
+        //
+        glEnableVertexAttribArray(0);
+        glBindBuffer(GL_ARRAY_BUFFER, quad_vertexbuffer);
+        glVertexAttribPointer(pos_loc, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        glDisableVertexAttribArray(0);
+        
         
         // load deformation into deform texture (sampler2D)
         
@@ -436,6 +514,11 @@ int main(int argc, char *argv[])
     glDeleteProgram(shaderProgram);
     glDeleteShader(fs);
     glDeleteShader(vs);
+    
+    glDeleteProgram(spScn);
+    glDeleteShader(fsScn);
+    glDeleteShader(vsScn);
+    
     glDeleteTextures(2, textures);
     glDeleteFramebuffers(1, &fb);
     glDeleteRenderbuffers(1, &db);
