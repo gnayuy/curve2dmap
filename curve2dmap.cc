@@ -151,15 +151,19 @@ int loadDeform(char *p, string fn)
 const char* vertexShader =
 "attribute vec2 vPos;"
 "uniform mat4 MVP;"
+"varying vec2 texcoord;"
 "void main () {"
 "  gl_Position = MVP * vec4(vPos, 0.0, 1.0);"
+"  texcoord = vPos;"
 "}";
 
 //
 const char* fragmentShader =
 "uniform vec4 color;"
+"uniform sampler2D tex0;"
+"varying vec2 texcoord;"
 "void main () {"
-"  gl_FragColor = color;\n"
+"  gl_FragColor = texture2D(tex0, texcoord);\n"
 "}";
 
 //
@@ -238,11 +242,13 @@ int main(int argc, char *argv[])
     glfwSetKeyCallback(window, key_callback);
     glfwSetCursorPosCallback(window, cursorPos_callback);
     glfwSetMouseButtonCallback(window, mouseButton_callback);
+    glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
+    //glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwSetCursorPos(window, width/2, height/2);
     
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);
-    glfwSetCursorPos(window, width/2, height/2);
-    
+
     // Init GLEW
     glewExperimental = true;
     if (glewInit() != GLEW_OK) {
@@ -261,6 +267,9 @@ int main(int argc, char *argv[])
     glm::mat4 mvp = projectionMatrix * viewMatrix * modelMatrix;
     
     //
+    GLenum g_drawBuffers[] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
+    
+    //
     //---- create input images
     //
     
@@ -275,7 +284,7 @@ int main(int argc, char *argv[])
     GLuint shaderProgram;
   
     // Create the shaders
-    vs = glCreateShader(GL_vertexShader);
+    vs = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vs, 1, &vertexShader, NULL);
     glCompileShader(vs);
     if(check_shader_compile_status(vs)==false)
@@ -284,7 +293,7 @@ int main(int argc, char *argv[])
         return -1;
     }
     
-    fs = glCreateShader(GL_fragmentShader);
+    fs = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(fs, 1, &fragmentShader, NULL);
     glCompileShader(fs);
     if(check_shader_compile_status(fs)==false)
@@ -302,6 +311,7 @@ int main(int argc, char *argv[])
     GLuint mvp_location = glGetUniformLocation(shaderProgram, "MVP");
     GLuint pos_location = glGetAttribLocation(shaderProgram, "vPos");
     GLuint col_location = glGetUniformLocation(shaderProgram, "color");
+    GLuint tex_location  = glGetUniformLocation(shaderProgram, "tex0");
     
     glUniform4fv(col_location, 1, glm::value_ptr(rect.color));
     
@@ -336,12 +346,14 @@ int main(int argc, char *argv[])
     
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textures[PJTEX], 0);
     
-    glBindTexture(GL_TEXTURE_2D, 0);
-    
     glGenRenderbuffers(1, &db);
     glBindRenderbuffer(GL_RENDERBUFFER, db);
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, dimx, dimy);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, db);
+    
+    glDrawBuffers(1, g_drawBuffers);
+    
+    glBindTexture(GL_TEXTURE_2D, 0);
     
     glBindRenderbuffer(GL_RENDERBUFFER, 0);
     
@@ -365,8 +377,7 @@ int main(int argc, char *argv[])
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     
-    //
-    GLenum g_drawBuffers[] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
+
     
     //
     //---- Warp
@@ -384,7 +395,7 @@ int main(int argc, char *argv[])
         // Cull triangles which normal is not towards the camera
         //glEnable(GL_CULL_FACE);
         
-        glUseProgram(shaderProgram);
+        
         
         glUniformMatrix4fv(mvp_location, 1, GL_FALSE, glm::value_ptr(mvp));
         
@@ -392,6 +403,12 @@ int main(int argc, char *argv[])
         glViewport(0, 0, dimx, dimy);
         glClear(GL_COLOR_BUFFER_BIT);
         glClearColor(0.5f, 0.5f, 0.5f, 0.0f);
+        
+        glUseProgram(shaderProgram);
+        
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, textures[PJTEX]);
+        glUniform1i(tex_location, 0);
         
         glBindVertexArray(vao);
         glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -417,8 +434,8 @@ int main(int argc, char *argv[])
     
     // Delete allocated resources
     glDeleteProgram(shaderProgram);
-    glDeleteShader(fragmentShader);
-    glDeleteShader(vertexShader);
+    glDeleteShader(fs);
+    glDeleteShader(vs);
     glDeleteTextures(2, textures);
     glDeleteFramebuffers(1, &fb);
     glDeleteRenderbuffers(1, &db);
