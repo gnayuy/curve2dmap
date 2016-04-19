@@ -246,7 +246,7 @@ int main(int argc, char *argv[])
     //
     GLuint vs;
     GLuint fs;
-    GLuint shader_program;
+    GLuint shaderProgram;
     GLuint *tex;
   
     // Create the shaders
@@ -269,18 +269,18 @@ int main(int argc, char *argv[])
     }
     
     //
-    shader_program = glCreateProgram();
-    glAttachShader(shader_program, fs);
-    glAttachShader(shader_program, vs);
-    glLinkProgram(shader_program);
+    shaderProgram = glCreateProgram();
+    glAttachShader(shaderProgram, fs);
+    glAttachShader(shaderProgram, vs);
+    glLinkProgram(shaderProgram);
     
-    GLuint mvp_location = glGetUniformLocation(shader_program, "MVP");
-    GLuint pos_location = glGetAttribLocation(shader_program, "vPos");
-    GLuint col_location = glGetUniformLocation(shader_program, "color");
+    GLuint mvp_location = glGetUniformLocation(shaderProgram, "MVP");
+    GLuint pos_location = glGetAttribLocation(shaderProgram, "vPos");
+    GLuint col_location = glGetUniformLocation(shaderProgram, "color");
     
     glUniform4fv(col_location, 1, glm::value_ptr(rect.color));
     
-    //
+    // vao
     GLuint vao, vbo;
     
     glGenVertexArrays(1, &vao);
@@ -295,6 +295,31 @@ int main(int argc, char *argv[])
     
     glBindVertexArray(0);
     
+    // fb
+    GLuint fb, db;
+    glBindFramebuffer(GL_FRAMEBUFFER, fb);
+    
+    //
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, textures[0]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, dimx, dimy, 0, GL_RED, GL_FLOAT, 0);
+    
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textures[0], 0);
+    
+    glBindTexture(GL_TEXTURE_2D, 0);
+    
+    glBindRenderbuffer(GL_RENDERBUFFER, db);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, dimx, dimy);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, db);
+    
+    glBindRenderbuffer(GL_RENDERBUFFER, 0);
+    
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
     
     //
     //---- load deformation
@@ -369,7 +394,7 @@ int main(int argc, char *argv[])
         // Cull triangles which normal is not towards the camera
         //glEnable(GL_CULL_FACE);
         
-        glUseProgram(shader_program);
+        glUseProgram(shaderProgram);
         
         glUniformMatrix4fv(mvp_location, 1, GL_FALSE, glm::value_ptr(mvp));
         
