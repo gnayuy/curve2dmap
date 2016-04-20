@@ -458,14 +458,14 @@ int main(int argc, char *argv[])
         
         // render to texture
         glBindFramebuffer(GL_FRAMEBUFFER, fb);
+        //glDrawBuffer(GL_COLOR_ATTACHMENT0);
         glViewport(0, 0, dimx, dimy);
         glClearColor(0.5f, 0.5f, 0.5f, 0.0f);
         glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         
         glUseProgram(shaderProgram);
         
-        glPushAttrib(GL_ENABLE_BIT);
-        
+        //glPushAttrib(GL_ENABLE_BIT); // GL_ALL_ATTRIB_BITS, GL_CURRENT_BIT
         
 //        glActiveTexture(GL_TEXTURE0);
 //        glBindTexture(GL_TEXTURE_2D, textures[PJTEX]);
@@ -475,9 +475,10 @@ int main(int argc, char *argv[])
         glDrawArrays(GL_TRIANGLES, 0, 6);
         glBindVertexArray(0);
         
-        glDrawBuffer(GL_COLOR_ATTACHMENT0);
+        //glDrawBuffer(GL_COLOR_ATTACHMENT0);
         
-        glPopAttrib();
+        //glPopAttrib();
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
         
         // Render to screen
 //        glBindFramebuffer(GL_FRAMEBUFFER, 0);
