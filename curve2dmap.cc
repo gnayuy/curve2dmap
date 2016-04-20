@@ -372,12 +372,12 @@ int main(int argc, char *argv[])
     //
     
     //
-    float * deform_img = NULL;
-    loadDeform((char*)(deform_img), deformFile);
+    float * deformMat = NULL;
+    loadDeform((char*)(deformMat), deformFile);
     
 //    glActiveTexture(GL_TEXTURE1);
 //    glBindTexture(GL_TEXTURE_2D, textures[DMTEX]);
-//    glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, width, height, 0, GL_RG, GL_FLOAT, deform_img);
+//    glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, width, height, 0, GL_RG, GL_FLOAT, deformMat);
 //    //glUniform1i(glGetUniformLocation(shaderProgram, "tex1"), 1);
 //    
 //    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -443,9 +443,9 @@ int main(int argc, char *argv[])
     //
     //---- Warp
     //
-    while (!glfwWindowShouldClose (window)) {
-        
-        // 1st Pass: render an input image into an input framebuffer
+    while (!glfwWindowShouldClose (window))
+    {
+        // 1st Pass: render an input image to a framebuffer
 
         //
         glEnable(GL_TEXTURE_2D);
@@ -464,6 +464,9 @@ int main(int argc, char *argv[])
         
         glUseProgram(shaderProgram);
         
+        glPushAttrib(GL_ENABLE_BIT);
+        
+        
 //        glActiveTexture(GL_TEXTURE0);
 //        glBindTexture(GL_TEXTURE_2D, textures[PJTEX]);
 //        glUniform1i(tex_loc, 0);
@@ -471,6 +474,10 @@ int main(int argc, char *argv[])
         glBindVertexArray(vao);
         glDrawArrays(GL_TRIANGLES, 0, 6);
         glBindVertexArray(0);
+        
+        glDrawBuffer(GL_COLOR_ATTACHMENT0);
+        
+        glPopAttrib();
         
         // Render to screen
 //        glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -503,7 +510,18 @@ int main(int argc, char *argv[])
     //
     //---- save output image
     //
-    GLfloat *texData = new GLfloat[dimx*dimy];
+    GLfloat *texData = NULL;
+    
+    try
+    {
+        texData = new GLfloat[dimx*dimy];
+    }
+    catch(...)
+    {
+        std::cout<<"Fail to allocate memory for texture data"<<std::endl;
+        return -1;
+    }
+    
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, textures[0]);
     glGetTexImage(GL_TEXTURE_2D, 0, GL_R32F, GL_FLOAT, texData);
@@ -538,10 +556,16 @@ int main(int argc, char *argv[])
     glDeleteBuffers(1, &vbo);
     glDeleteVertexArrays(1, &vao);
     
-    if(deform_img)
+    if(deformMat)
     {
-        delete []deform_img;
-        deform_img = NULL;
+        delete []deformMat;
+        deformMat = NULL;
+    }
+    
+    if(texData)
+    {
+        delete []texData;
+        texData = NULL;
     }
     
     
