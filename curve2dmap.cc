@@ -176,6 +176,21 @@ const char* fsScreen =
 "  gl_FragColor = texture2D(tex0, texcoord);\n"
 "}";
 
+// warp
+const char* vsWarp =
+"attribute vec2 vPos;"
+"uniform mat4 MVP;"
+"void main () {"
+"  gl_Position = MVP * vec4(vPos, 0.0, 1.0);"
+"}";
+
+const char* fsWarp =
+"uniform sampler2D tex0;"
+"uniform sampler2D tex1;"
+"void main () {"
+"  gl_FragColor = texture2D(tex0, gl_TexCoord[1].st);\n"
+"}";
+
 //
 GLuint fb[2] = {std::numeric_limits<GLuint>::max(), std::numeric_limits<GLuint>::max()}; //framebuffers
 GLuint rb[2] = {std::numeric_limits<GLuint>::max(), std::numeric_limits<GLuint>::max()}; //renderbuffers, color and depth
@@ -388,9 +403,6 @@ int main(int argc, char *argv[])
     //
     //---- screen
     //
-    
-    //glReadBuffer(GL_NONE);
-    //glDrawBuffer(GL_COLOR_ATTACHMENT0);
     
     //
     GLuint vsScn;
