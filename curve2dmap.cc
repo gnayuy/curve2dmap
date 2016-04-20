@@ -43,6 +43,7 @@ const size_t height = 684;
 
 // deformation RG32F
 string deformFile = "transformation/deform.bin";
+char outFile[] = "result/output.bin";
 
 // Mouse position
 static double xpos = 0, ypos = 0;
@@ -99,15 +100,12 @@ static void cursorPos_callback(GLFWwindow* window, double x, double y)
     glfwGetWindowSize(window, &wnd_width, &wnd_height);
     glfwGetFramebufferSize(window, &fb_width, &fb_height);
     
-//    std::cout<<"wnd size "<<wnd_width<<" "<<wnd_height<<std::endl;
-//    std::cout<<"fb size "<<fb_width<<" "<<fb_height<<std::endl;
-    
     scale = (double) fb_width / (double) wnd_width;
     
     x *= scale;
     y *= scale;
     
-    // Remember cursor position
+    // cursor position
     xpos = x;
     ypos = y;
 }
@@ -241,10 +239,11 @@ int main(int argc, char *argv[])
     
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+    glfwWindowHint(GLFW_RESIZABLE, GL_FALSE); // fixed window
     
     // Open a window and create its OpenGL context
     //window = glfwCreateWindow( width, height, "project image", NULL, NULL);
-    window = glfwCreateWindow( dimx, dimy, "project image", NULL, NULL);
+    window = glfwCreateWindow( dimx/2, dimy/2, "project image", NULL, NULL);
     if( window == NULL ){
         fprintf( stderr, "Failed to open GLFW window.\n" );
         getchar();
@@ -287,7 +286,7 @@ int main(int argc, char *argv[])
     
     // Example Data Generated
     Quad rect;
-    rect.add(glm::vec2(850,0), glm::vec2(900,0), glm::vec2(900,300), glm::vec2(850,300));
+    rect.add(glm::vec2(650,60), glm::vec2(700,60), glm::vec2(700,300), glm::vec2(650,300));
     rect.setColor(glm::vec4(0,0,0,0));
 
     //
@@ -458,7 +457,7 @@ int main(int argc, char *argv[])
         glUniformMatrix4fv(mvp_location, 1, GL_FALSE, glm::value_ptr(mvp));
         
         // render to texture
-//        glBindFramebuffer(GL_FRAMEBUFFER, fb);
+        glBindFramebuffer(GL_FRAMEBUFFER, fb);
         glViewport(0, 0, dimx, dimy);
         glClearColor(0.5f, 0.5f, 0.5f, 0.0f);
         glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -504,7 +503,24 @@ int main(int argc, char *argv[])
     //
     //---- save output image
     //
+    GLfloat *texData = new GLfloat[dimx*dimy];
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, textures[0]);
+    glGetTexImage(GL_TEXTURE_2D, 0, GL_R32F, GL_FLOAT, texData);
     
+    //
+    FILE *fp=NULL;
+    fp = fopen(outFile, "w");
+    
+    if (fp == NULL) {
+        std::cout<<"Can't open output file %s!\n";
+        return -1;
+    }
+    
+    for(size_t i=0; i<dimx*dimy; i++)
+        fprintf(fp, "%f", texData[i]);
+    
+    fclose(fp);
     
     
     // Delete allocated resources
