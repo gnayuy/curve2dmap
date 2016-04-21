@@ -243,6 +243,8 @@ int main(int argc, char *argv[])
     //
     
     bool b_debug = false;
+    
+    if(argc>1)
     if (strcmp(argv[1], "debug") == 0)
     {
         b_debug = true;
