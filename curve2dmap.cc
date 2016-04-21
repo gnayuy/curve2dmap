@@ -187,7 +187,8 @@ const char* fsWarp =
 "uniform sampler2D tex0;"
 "uniform sampler2D tex1;"
 "void main () {"
-"  gl_FragColor = texture2D(tex0, gl_TexCoord[1].st);\n"
+"  vec4 texcoord = texture2D(tex1, gl_TexCoord[0].st);"
+"  gl_FragColor = texture2D(tex0, texcoord.st);\n"
 "}";
 
 //
@@ -301,7 +302,7 @@ int main(int argc, char *argv[])
     // Example Data Generated
     Quad rect;
     rect.add(glm::vec2(650,60), glm::vec2(700,60), glm::vec2(700,300), glm::vec2(650,300));
-    rect.setColor(glm::vec4(0,0,0,0));
+    rect.setColor(glm::vec4(1.0,0,0,1.0));
 
     //
     GLuint vs;
@@ -337,7 +338,7 @@ int main(int argc, char *argv[])
     GLuint pos_location = glGetAttribLocation(shaderProgram, "vPos");
     GLuint col_location = glGetUniformLocation(shaderProgram, "color");
     
-    glUniform4fv(col_location, 1, glm::value_ptr(rect.color));
+    glUniform4fv(col_location, 1, glm::value_ptr(rect.color)); // color
     
     // vao
     GLuint vao=0, vbo=0;
@@ -409,47 +410,56 @@ int main(int argc, char *argv[])
     GLuint spScn;
     
     // Create the shaders
-    vsScn = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vsScn, 1, &vsScreen, NULL);
-    glCompileShader(vsScn);
-    if(check_shader_compile_status(vsScn)==false)
-    {
-        std::cout<<"Fail to compile screen vertex shader"<<std::endl;
-        return -1;
-    }
-    
-    fsScn = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fsScn, 1, &fsScreen, NULL);
-    glCompileShader(fsScn);
-    if(check_shader_compile_status(fsScn)==false)
-    {
-        std::cout<<"Fail to compile screen fragment shader"<<std::endl;
-        return -1;
-    }
-    
-    //
-    spScn = glCreateProgram();
-    glAttachShader(spScn, fs);
-    glAttachShader(spScn, vs);
-    glLinkProgram(spScn);
-    
-    GLuint pos_loc = glGetAttribLocation(spScn, "vPos");
-    GLuint tex_loc  = glGetUniformLocation(spScn, "tex0");
-
-    // The fullscreen quad
-    static const GLfloat g_quad_vertex_buffer_data[] = {
-        -1.0f, -1.0f,
-        1.0f, -1.0f,
-        -1.0f,  1.0f,
-        -1.0f,  1.0f,
-        1.0f, -1.0f,
-        1.0f,  1.0f,
-    };
-    
-    GLuint quad_vertexbuffer;
-    glGenBuffers(1, &quad_vertexbuffer);
-    glBindBuffer(GL_ARRAY_BUFFER, quad_vertexbuffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(g_quad_vertex_buffer_data), g_quad_vertex_buffer_data, GL_STATIC_DRAW);
+//    vsScn = glCreateShader(GL_VERTEX_SHADER);
+//    glShaderSource(vsScn, 1, &vsScreen, NULL);
+//    glCompileShader(vsScn);
+//    if(check_shader_compile_status(vsScn)==false)
+//    {
+//        std::cout<<"Fail to compile screen vertex shader"<<std::endl;
+//        return -1;
+//    }
+//    
+//    fsScn = glCreateShader(GL_FRAGMENT_SHADER);
+//    glShaderSource(fsScn, 1, &fsScreen, NULL);
+//    glCompileShader(fsScn);
+//    if(check_shader_compile_status(fsScn)==false)
+//    {
+//        std::cout<<"Fail to compile screen fragment shader"<<std::endl;
+//        return -1;
+//    }
+//    
+//    //
+//    spScn = glCreateProgram();
+//    glAttachShader(spScn, fs);
+//    glAttachShader(spScn, vs);
+//    glLinkProgram(spScn);
+//    
+//    GLuint pos_loc = glGetAttribLocation(spScn, "vPos");
+//    GLuint tex_loc  = glGetUniformLocation(spScn, "tex0");
+//
+//    // The fullscreen quad
+//    static const GLfloat screen_quad[] = {
+//        -1.0f, -1.0f, // a
+//         1.0f, -1.0f, // b
+//         1.0f,  1.0f, // c
+//        -1.0f, -1.0f, // a
+//         1.0f,  1.0f, // c
+//        -1.0f,  1.0f, // d
+//    };
+//    
+//    GLuint vaoScn=0, vboScn=0;
+//    
+//    glGenVertexArrays(1, &vaoScn);
+//    glBindVertexArray( vaoScn );
+//    
+//    glGenBuffers(1, &vboScn);
+//    glBindBuffer( GL_ARRAY_BUFFER, vboScn );
+//    glBufferData(GL_ARRAY_BUFFER, sizeof(screen_quad), screen_quad, GL_STATIC_DRAW);
+//    
+//    glEnableVertexAttribArray( pos_loc );
+//    glVertexAttribPointer( pos_loc, 2, GL_FLOAT, GL_FALSE, 0, (GLvoid*)(0) );
+//    
+//    glBindVertexArray(0);
     
     //
     //---- Warp
@@ -460,8 +470,8 @@ int main(int argc, char *argv[])
 
         //
         glEnable(GL_TEXTURE_2D);
-        //glEnable(GL_DEPTH_TEST);
-        //glDepthFunc(GL_LESS);
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(GL_LESS);
         //glEnable(GL_CULL_FACE);
 
         //
@@ -478,10 +488,6 @@ int main(int argc, char *argv[])
         
         //glPushAttrib(GL_ENABLE_BIT); // GL_ALL_ATTRIB_BITS, GL_CURRENT_BIT
         
-//        glActiveTexture(GL_TEXTURE0);
-//        glBindTexture(GL_TEXTURE_2D, textures[PJTEX]);
-//        glUniform1i(tex_loc, 0);
-        
         glBindVertexArray(vao);
         glDrawArrays(GL_TRIANGLES, 0, 6);
         glBindVertexArray(0);
@@ -492,21 +498,19 @@ int main(int argc, char *argv[])
         
         // Render to screen
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glViewport(0, 0, dimx, dimy);
-        glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        
-        //
-        glUseProgram(spScn);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, textures[PJTEX]);
-        glUniform1i(tex_loc, 0);
-        
-        //
-        glEnableVertexAttribArray(0);
-        glBindBuffer(GL_ARRAY_BUFFER, quad_vertexbuffer);
-        glVertexAttribPointer(pos_loc, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
-        glDisableVertexAttribArray(0);
+//        glViewport(0, 0, dimx, dimy);
+//        glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+//        
+//        //
+//        glUseProgram(spScn);
+//        glActiveTexture(GL_TEXTURE0);
+//        glBindTexture(GL_TEXTURE_2D, textures[PJTEX]);
+//        glUniform1i(tex_loc, 0);
+//        
+//        //
+//        glBindVertexArray(vaoScn);
+//        glDrawArrays(GL_TRIANGLES, 0, 6);
+//        glBindVertexArray(0);
         
         
         // load deformation into deform texture (sampler2D)
@@ -566,6 +570,9 @@ int main(int argc, char *argv[])
     glDeleteRenderbuffers(1, &db);
     glDeleteBuffers(1, &vbo);
     glDeleteVertexArrays(1, &vao);
+    
+//    glDeleteBuffers(1, &vboScn);
+//    glDeleteVertexArrays(1, &vaoScn);
     
     if(deformMat)
     {
