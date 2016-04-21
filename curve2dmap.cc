@@ -374,27 +374,30 @@ int main(int argc, char *argv[])
     glGenFramebuffers(1, &fb);
     glBindFramebuffer(GL_FRAMEBUFFER, fb);
     
-    glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, textures[PJTEX]);
-    //glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, dimx, dimy, 0, GL_RED, GL_FLOAT, 0);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, dimx, dimy, 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
+    //glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, dimx, dimy, 0, GL_RED, GL_FLOAT, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, dimx, dimy, 0, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
     
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glBindTexture(GL_TEXTURE_2D, 0);
     
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textures[PJTEX], 0);
     
     glGenRenderbuffers(1, &db);
     glBindRenderbuffer(GL_RENDERBUFFER, db);
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, dimx, dimy);
+    glBindRenderbuffer(GL_RENDERBUFFER, 0);
+    
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, db);
     
-    //glDrawBuffers(1, g_drawBuffers);
-    
-    glBindTexture(GL_TEXTURE_2D, 0);
-    glBindRenderbuffer(GL_RENDERBUFFER, 0);
+    if(glCheckFramebufferStatus(GL_FRAMEBUFFER)!=GL_FRAMEBUFFER_COMPLETE)
+    {
+        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!\n";
+    }
+
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     
     //
@@ -548,46 +551,48 @@ int main(int argc, char *argv[])
     //
     while (!glfwWindowShouldClose (window))
     {
-        // 1st Pass: render an input image to a framebuffer
-
+        //
+        glfwPollEvents();
+        
+        //
+        //------ 1st Pass: render an input image to a framebuffer
+        //
+        
+        // render to texture
+        glBindFramebuffer(GL_FRAMEBUFFER, fb);
+        //glDrawBuffer(GL_COLOR_ATTACHMENT0);
+        glViewport(0, 0, dimx, dimy);
+        glClearColor(0.5f, 0.5f, 0.5f, 0.0f);
+        glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        
         //
         glEnable(GL_TEXTURE_2D);
         glEnable(GL_DEPTH_TEST);
-        glDepthFunc(GL_LESS);
+        //glDepthFunc(GL_LESS);
         //glEnable(GL_CULL_FACE);
+        
+        glUseProgram(shaderProgram);
         
         //glDrawBuffers(2, g_drawBuffers);
 
         //
         glUniformMatrix4fv(mvp_location, 1, GL_FALSE, glm::value_ptr(mvp));
         
-        // render to texture
-        glBindFramebuffer(GL_FRAMEBUFFER, fb);
-        glDrawBuffer(GL_COLOR_ATTACHMENT0);
-        glViewport(0, 0, dimx, dimy);
-        glClearColor(0.5f, 0.5f, 0.5f, 0.0f);
-        glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        
-        glUseProgram(shaderProgram);
-        
-        //glPushAttrib(GL_ENABLE_BIT); // GL_ALL_ATTRIB_BITS, GL_CURRENT_BIT
-        
+        //
         glBindVertexArray(vao);
         glDrawArrays(GL_TRIANGLES, 0, 6);
         glBindVertexArray(0);
-        
-        //glDrawBuffer(GL_COLOR_ATTACHMENT0);
-        
-        //glPopAttrib();
         
         // Render to screen
         if(b_debug)
         {
             //
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
-            glDrawBuffer(GL_BACK_LEFT);
-            glViewport(0, 0, dimx, dimy);
+            //glDrawBuffer(GL_BACK_LEFT);
+            //glViewport(0, 0, dimx, dimy);
+            glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
             glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            glDisable(GL_DEPTH_TEST);
 
             //
             glUseProgram(spScn);
@@ -624,10 +629,9 @@ int main(int argc, char *argv[])
             glDrawArrays(GL_TRIANGLES, 0, 6);
             glBindVertexArray(0);
         }
+        
         //
         glfwSwapBuffers(window);
-        glfwPollEvents();
-        
     }
     
     //
