@@ -172,23 +172,24 @@ const char* fsScreen =
 "uniform sampler2D tex0;"
 "varying vec2 texcoord;"
 "void main () {"
-"  gl_FragColor = texture2D(tex0, texcoord);\n"
+"  gl_FragColor = texture2D(tex0, texcoord);"
 "}";
 
 // warp
 const char* vsWarp =
 "attribute vec2 vPos;"
-"uniform mat4 MVP;"
 "void main () {"
-"  gl_Position = MVP * vec4(vPos, 0.0, 1.0);"
+"  gl_Position = vec4(vPos, 0.0, 1.0);"
 "}";
 
 const char* fsWarp =
+"uniform float w;"
+"uniform float h;"
 "uniform sampler2D tex0;"
 "uniform sampler2D tex1;"
 "void main () {"
 "  vec4 texcoord = texture2D(tex1, gl_TexCoord[0].st);"
-"  gl_FragColor = texture2D(tex0, texcoord.st);\n"
+"  gl_FragColor = texture2D(tex0, vec2(texcoord.s/w, texcoord.t/h));"
 "}";
 
 //
@@ -257,8 +258,8 @@ int main(int argc, char *argv[])
     glfwWindowHint(GLFW_RESIZABLE, GL_FALSE); // fixed window
     
     // Open a window and create its OpenGL context
-    //window = glfwCreateWindow( width, height, "project image", NULL, NULL);
-    window = glfwCreateWindow( dimx/2, dimy/2, "project image", NULL, NULL);
+    window = glfwCreateWindow( width/2, height/2, "project image", NULL, NULL);
+    //window = glfwCreateWindow( dimx/2, dimy/2, "project image", NULL, NULL); // for debugging
     if( window == NULL ){
         fprintf( stderr, "Failed to open GLFW window.\n" );
         getchar();
@@ -330,8 +331,8 @@ int main(int argc, char *argv[])
     
     //
     shaderProgram = glCreateProgram();
-    glAttachShader(shaderProgram, fs);
     glAttachShader(shaderProgram, vs);
+    glAttachShader(shaderProgram, fs);
     glLinkProgram(shaderProgram);
     
     GLuint mvp_location = glGetUniformLocation(shaderProgram, "MVP");
@@ -387,18 +388,81 @@ int main(int argc, char *argv[])
     //
     
     //
+    GLuint vsDeform;
+    GLuint fsDeform;
+    GLuint spDeform;
+    
+    vsDeform = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vsDeform, 1, &vsWarp, NULL);
+    glCompileShader(vsDeform);
+    if(check_shader_compile_status(vsDeform)==false)
+    {
+        std::cout<<"Fail to compile screen vertex shader"<<std::endl;
+        return -1;
+    }
+
+    fsDeform = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fsDeform, 1, &fsWarp, NULL);
+    glCompileShader(fsDeform);
+    if(check_shader_compile_status(fsDeform)==false)
+    {
+        std::cout<<"Fail to compile screen fragment shader"<<std::endl;
+        return -1;
+    }
+
+    //
+    spDeform = glCreateProgram();
+    glAttachShader(spDeform, vsDeform);
+    glAttachShader(spDeform, fsDeform);
+    glLinkProgram(spDeform);
+
+    GLuint locPos = glGetAttribLocation(spDeform, "vPos");
+    GLuint locTex0  = glGetUniformLocation(spDeform, "tex0");
+    GLuint locTex1  = glGetUniformLocation(spDeform, "tex1");
+    GLuint locWidth  = glGetUniformLocation(spDeform, "w");
+    GLuint locHeight  = glGetUniformLocation(spDeform, "h");
+
+    // screen quad
+    static const GLfloat quad[] = {
+        -1.0f, -1.0f, // a
+         1.0f, -1.0f, // b
+         1.0f,  1.0f, // c
+        -1.0f, -1.0f, // a
+         1.0f,  1.0f, // c
+        -1.0f,  1.0f, // d
+    };
+
+    GLuint vaoDeform=0, vboDeform=0;
+
+    glGenVertexArrays(1, &vaoDeform);
+    glBindVertexArray( vaoDeform );
+
+    glGenBuffers(1, &vboDeform);
+    glBindBuffer( GL_ARRAY_BUFFER, vboDeform );
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quad), quad, GL_STATIC_DRAW);
+    
+    glEnableVertexAttribArray( locPos );
+    glVertexAttribPointer( locPos, 2, GL_FLOAT, GL_FALSE, 0, (GLvoid*)(0) );
+    
+    glBindVertexArray(0);
+    
+    //
+    glUniform1f(locWidth, dimx);
+    glUniform1f(locHeight, dimy);
+    
+    //
     float * deformMat = NULL;
     loadDeform((char*)(deformMat), deformFile);
     
-//    glActiveTexture(GL_TEXTURE1);
-//    glBindTexture(GL_TEXTURE_2D, textures[DMTEX]);
-//    glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, width, height, 0, GL_RG, GL_FLOAT, deformMat);
-//    //glUniform1i(glGetUniformLocation(shaderProgram, "tex1"), 1);
-//    
-//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glBindTexture(GL_TEXTURE_2D, textures[DMTEX]);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RG32F, width, height, 0, GL_RG, GL_FLOAT, deformMat);
+    
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    
+    glBindTexture(GL_TEXTURE_2D, 0);
     
     //
     //---- screen
@@ -430,8 +494,8 @@ int main(int argc, char *argv[])
 //    
 //    //
 //    spScn = glCreateProgram();
-//    glAttachShader(spScn, fs);
-//    glAttachShader(spScn, vs);
+//    glAttachShader(spScn, vsScn);
+//    glAttachShader(spScn, fsScn);
 //    glLinkProgram(spScn);
 //    
 //    GLuint pos_loc = glGetAttribLocation(spScn, "vPos");
@@ -497,10 +561,10 @@ int main(int argc, char *argv[])
         //glPopAttrib();
         
         // Render to screen
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-//        glViewport(0, 0, dimx, dimy);
+//        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+//        glViewport(0, 0, width, height);
 //        glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-//        
+//
 //        //
 //        glUseProgram(spScn);
 //        glActiveTexture(GL_TEXTURE0);
@@ -514,9 +578,28 @@ int main(int argc, char *argv[])
         
         
         // load deformation into deform texture (sampler2D)
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glViewport(0, 0, width, height);
+        glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         
+        //
+        glUseProgram(spDeform);
         
-        // Set the mouse at the center of the screen
+        //
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, textures[PJTEX]);
+        glUniform1i(locTex0, 0);
+        
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, textures[DMTEX]);
+        glUniform1i(locTex1, 1);
+
+        //
+        glBindVertexArray(vaoDeform);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        glBindVertexArray(0);
+        
+        //
         glfwSwapBuffers(window);
         glfwPollEvents();
         
@@ -538,8 +621,8 @@ int main(int argc, char *argv[])
     }
     
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, textures[0]);
-    glGetTexImage(GL_TEXTURE_2D, 0, GL_R32F, GL_FLOAT, texData);
+    glBindTexture(GL_TEXTURE_2D, textures[PJTEX]);
+    glUniform1i(locTex0, 0);
     
     //
     FILE *fp=NULL;
@@ -555,22 +638,30 @@ int main(int argc, char *argv[])
     
     fclose(fp);
     
+    //
+    //---- release resources
+    //
     
     // Delete allocated resources
     glDeleteProgram(shaderProgram);
     glDeleteShader(fs);
     glDeleteShader(vs);
-    
-    glDeleteProgram(spScn);
-    glDeleteShader(fsScn);
-    glDeleteShader(vsScn);
+
+    glDeleteProgram(spDeform);
+    glDeleteShader(fsDeform);
+    glDeleteShader(vsDeform);
     
     glDeleteTextures(2, textures);
     glDeleteFramebuffers(1, &fb);
     glDeleteRenderbuffers(1, &db);
     glDeleteBuffers(1, &vbo);
     glDeleteVertexArrays(1, &vao);
+    glDeleteBuffers(1, &vboDeform);
+    glDeleteVertexArrays(1, &vaoDeform);
     
+//    glDeleteProgram(spScn);
+//    glDeleteShader(fsScn);
+//    glDeleteShader(vsScn);
 //    glDeleteBuffers(1, &vboScn);
 //    glDeleteVertexArrays(1, &vaoScn);
     
@@ -585,8 +676,7 @@ int main(int argc, char *argv[])
         delete []texData;
         texData = NULL;
     }
-    
-    
+
     // Close OpenGL window and terminate GLFW
     glfwTerminate();
     exit(EXIT_SUCCESS);
