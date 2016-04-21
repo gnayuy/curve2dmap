@@ -189,6 +189,7 @@ const char* fsWarp =
 "uniform sampler2D tex1;"
 "void main () {"
 "  vec4 texcoord = texture2D(tex1, gl_TexCoord[0].st);"
+//"  gl_FragColor = vec4(texture2D(tex0, vec2(texcoord.s/w, texcoord.t/h)).a, 0.0, 0.0, 1.0);"
 "  gl_FragColor = texture2D(tex0, vec2(texcoord.s/w, texcoord.t/h));"
 "}";
 
@@ -389,7 +390,7 @@ int main(int argc, char *argv[])
     glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, dimx, dimy);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, db);
     
-    glDrawBuffers(1, g_drawBuffers);
+    //glDrawBuffers(1, g_drawBuffers);
     
     glBindTexture(GL_TEXTURE_2D, 0);
     glBindRenderbuffer(GL_RENDERBUFFER, 0);
@@ -553,6 +554,8 @@ int main(int argc, char *argv[])
         glEnable(GL_DEPTH_TEST);
         glDepthFunc(GL_LESS);
         //glEnable(GL_CULL_FACE);
+        
+        glDrawBuffers(2, g_drawBuffers);
 
         //
         glUniformMatrix4fv(mvp_location, 1, GL_FALSE, glm::value_ptr(mvp));
