@@ -122,7 +122,7 @@ static void mouseButton_callback(GLFWwindow* window, int button, int action, int
 
 int loadDeform(char *p, string fn)
 {
-    ifstream file (fn, ios::in|ios::binary|ios::ate);
+    ifstream file (fn.c_str(), ios::in|ios::binary|ios::ate);
     if (file.is_open())
     {
         size_t size = file.tellg();
