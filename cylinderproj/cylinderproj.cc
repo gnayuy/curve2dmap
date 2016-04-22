@@ -16,6 +16,10 @@
 using namespace std;
 
 //
+#include <glbinding/gl/gl.h>
+#include <glbinding/Binding.h>
+
+//
 #include <GL/glew.h>
 
 //
@@ -122,7 +126,7 @@ static void mouseButton_callback(GLFWwindow* window, int button, int action, int
 
 int loadDeform(char *p, string fn)
 {
-    ifstream file (fn, ios::in|ios::binary|ios::ate);
+    ifstream file (fn.c_str(), ios::in|ios::binary|ios::ate);
     if (file.is_open())
     {
         size_t size = file.tellg();
@@ -147,50 +151,59 @@ int loadDeform(char *p, string fn)
 
 // draw input image
 const char* vertexShader =
-"attribute vec2 vPos;"
+"#version 330 core \n"
+"in vec2 vPos;"
 "uniform mat4 MVP;"
 "void main () {"
 "  gl_Position = MVP * vec4(vPos, 0.0, 1.0);"
 "}";
 
 const char* fragmentShader =
+"#version 330 core \n"
 "uniform vec4 color;"
+"out vec4 fragColor;"
 "void main () {"
-"  gl_FragColor = color;\n"
+"  fragColor = color;\n"
 "}";
 
 // render to screen
 const char* vsScreen =
-"attribute vec2 vPos;"
-"varying vec2 texcoord;"
+"#version 330 core \n"
+"in vec2 vPos;"
+"out vec2 texcoord;"
 "void main () {"
 "  gl_Position = vec4(vPos, 0.0, 1.0);"
 "  texcoord = (vPos+vec2(1,1))/2.0;"
 "}";
 
 const char* fsScreen =
+"#version 330 core \n"
 "uniform sampler2D tex0;"
-"varying vec2 texcoord;"
+"in vec2 texcoord;"
+"out vec4 fragColor;"
 "void main () {"
-"  gl_FragColor = texture2D(tex0, texcoord);"
+"  fragColor = texture(tex0, texcoord);"
 "}";
 
 // warp
 const char* vsWarp =
-"attribute vec2 vPos;"
+"#version 330 core \n"
+"in vec2 vPos;"
 "void main () {"
 "  gl_Position = vec4(vPos, 0.0, 1.0);"
 "}";
 
 const char* fsWarp =
+"#version 330 core \n"
 "uniform float w;"
 "uniform float h;"
 "uniform sampler2D tex0;"
 "uniform sampler2D tex1;"
+"out vec4 fragColor;"
 "void main () {"
-"  vec4 texcoord = texture2D(tex1, gl_TexCoord[0].st);"
+//"  vec4 texcoord = texture2D(tex1, gl_TexCoord[0].st);"
 //"  gl_FragColor = vec4(texture2D(tex0, vec2(texcoord.s/w, texcoord.t/h)).a, 0.0, 0.0, 1.0);"
-"  gl_FragColor = texture2D(tex0, vec2(texcoord.s/w, texcoord.t/h));"
+//"  fragColor = texture2D(tex0, vec2(texcoord.s/w, texcoord.t/h));"
 "}";
 
 //
@@ -263,9 +276,15 @@ int main(int argc, char *argv[])
         return -1;
     }
     
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
-    glfwWindowHint(GLFW_RESIZABLE, GL_FALSE); // fixed window
+//    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
+//    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+//    glfwWindowHint(GLFW_RESIZABLE, GL_FALSE); // fixed window
+    
+    glfwWindowHint(GLFW_SAMPLES, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // To make MacOS happy; should not be needed
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     
     // Open a window and create its OpenGL context
     if(b_debug)
@@ -316,7 +335,7 @@ int main(int argc, char *argv[])
     // Example Data Generated
     Quad rect;
     rect.add(glm::vec2(650,60), glm::vec2(700,60), glm::vec2(700,300), glm::vec2(650,300));
-    rect.setColor(glm::vec4(1.0,0,0,1.0));
+    rect.setColor(glm::vec4(1.0,0.0,0.0,1.0));
 
     //
     GLuint vs;
@@ -354,6 +373,9 @@ int main(int argc, char *argv[])
     
     glUniform4fv(col_location, 1, glm::value_ptr(rect.color)); // color
     
+    cout<<"color "<<glm::to_string(rect.color)<<endl;
+    cout<<glm::to_string(mvp)<<endl;
+    
     // vao
     GLuint vao=0, vbo=0;
     
@@ -371,31 +393,34 @@ int main(int argc, char *argv[])
     
     // fb
     GLuint fb=0, db=0;
-    glGenFramebuffers(1, &fb);
-    glBindFramebuffer(GL_FRAMEBUFFER, fb);
-    
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, textures[PJTEX]);
-    //glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, dimx, dimy, 0, GL_RED, GL_FLOAT, 0);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, dimx, dimy, 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
-    
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textures[PJTEX], 0);
-    
-    glGenRenderbuffers(1, &db);
-    glBindRenderbuffer(GL_RENDERBUFFER, db);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, dimx, dimy);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, db);
-    
-    //glDrawBuffers(1, g_drawBuffers);
-    
-    glBindTexture(GL_TEXTURE_2D, 0);
-    glBindRenderbuffer(GL_RENDERBUFFER, 0);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+//    glGenFramebuffers(1, &fb);
+//    glBindFramebuffer(GL_FRAMEBUFFER, fb);
+//    
+//    glBindTexture(GL_TEXTURE_2D, textures[PJTEX]);
+//    //glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, dimx, dimy, 0, GL_RED, GL_FLOAT, NULL);
+//    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, dimx, dimy, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+//    
+//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+//    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+//    glBindTexture(GL_TEXTURE_2D, 0);
+//    
+//    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textures[PJTEX], 0);
+//    
+//    glGenRenderbuffers(1, &db);
+//    glBindRenderbuffer(GL_RENDERBUFFER, db);
+//    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, dimx, dimy);
+//    glBindRenderbuffer(GL_RENDERBUFFER, 0);
+//    
+//    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, db);
+//    
+//    if(glCheckFramebufferStatus(GL_FRAMEBUFFER)!=GL_FRAMEBUFFER_COMPLETE)
+//    {
+//        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!\n";
+//    }
+//
+//    glBindFramebuffer(GL_FRAMEBUFFER, 0);
     
     //
     //---- load deformation
@@ -548,61 +573,70 @@ int main(int argc, char *argv[])
     //
     while (!glfwWindowShouldClose (window))
     {
-        // 1st Pass: render an input image to a framebuffer
-
+        //
+        glfwPollEvents();
+        
+        //
+        //------ 1st Pass: render an input image to a framebuffer
+        //
+        
+        // render to texture
+        //glBindFramebuffer(GL_FRAMEBUFFER, fb);
+        //glDrawBuffer(GL_COLOR_ATTACHMENT0);
+        glViewport(0, 0, dimx, dimy);
+        glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
+        glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        
         //
         glEnable(GL_TEXTURE_2D);
         glEnable(GL_DEPTH_TEST);
-        glDepthFunc(GL_LESS);
+        //glDepthFunc(GL_LESS);
         //glEnable(GL_CULL_FACE);
+        
+        glUseProgram(shaderProgram);
         
         //glDrawBuffers(2, g_drawBuffers);
 
         //
         glUniformMatrix4fv(mvp_location, 1, GL_FALSE, glm::value_ptr(mvp));
         
-        // render to texture
-        glBindFramebuffer(GL_FRAMEBUFFER, fb);
-        glDrawBuffer(GL_COLOR_ATTACHMENT0);
-        glViewport(0, 0, dimx, dimy);
-        glClearColor(0.5f, 0.5f, 0.5f, 0.0f);
-        glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        
-        glUseProgram(shaderProgram);
-        
-        //glPushAttrib(GL_ENABLE_BIT); // GL_ALL_ATTRIB_BITS, GL_CURRENT_BIT
-        
+        //
         glBindVertexArray(vao);
         glDrawArrays(GL_TRIANGLES, 0, 6);
         glBindVertexArray(0);
-        
-        //glDrawBuffer(GL_COLOR_ATTACHMENT0);
-        
-        //glPopAttrib();
+
+        // pixel transfer
+//        GLubyte pixels[dimx*dimy*4];
+//        glReadBuffer(GL_COLOR_ATTACHMENT0);
+//        glReadPixels(0,0,dimx,dimy,GL_RGB,GL_UNSIGNED_BYTE,pixels);
         
         // Render to screen
         if(b_debug)
         {
             //
-            glBindFramebuffer(GL_FRAMEBUFFER, 0);
-            glDrawBuffer(GL_BACK_LEFT);
-            glViewport(0, 0, dimx, dimy);
-            glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-            //
-            glUseProgram(spScn);
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, textures[PJTEX]);
-            glUniform1i(tex_loc, 0);
-            
-            //
-            glBindVertexArray(vaoScn);
-            glDrawArrays(GL_TRIANGLES, 0, 6);
-            glBindVertexArray(0);
+//            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+//            //glDrawBuffer(GL_BACK_LEFT);
+//            //glViewport(0, 0, dimx, dimy);
+//            glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+//            glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+//            glDisable(GL_DEPTH_TEST);
+//
+//            //
+//            glUseProgram(spScn);
+//            glActiveTexture(GL_TEXTURE0);
+//            glBindTexture(GL_TEXTURE_2D, textures[PJTEX]);
+//            glUniform1i(tex_loc, 0);
+//            
+//            //
+//            glBindVertexArray(vaoScn);
+//            glDrawArrays(GL_TRIANGLES, 0, 6);
+//            glBindVertexArray(0);
         }
         else
         {
-            // load deformation into deform texture (sampler2D)
+            //
+            //---- 2nd pass: load deformation into deform texture (sampler2D)
+            //
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             glViewport(0, 0, width, height);
             glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -624,10 +658,9 @@ int main(int argc, char *argv[])
             glDrawArrays(GL_TRIANGLES, 0, 6);
             glBindVertexArray(0);
         }
+        
         //
         glfwSwapBuffers(window);
-        glfwPollEvents();
-        
     }
     
     //

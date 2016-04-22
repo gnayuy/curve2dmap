@@ -4,13 +4,13 @@
 UNAME := $(shell uname)
 
 CXX := g++
-CXXFLAGS := -Wall -g -I/usr/local/include
+CXXFLAGS := -Wall -std=c++11 -g -I/usr/local/include
 
 ifeq ($(UNAME), Linux)
 LDFLAGS := -L/usr/local/lib -lOpenGL -lGLEW -lglfw
 endif
 ifeq ($(UNAME), Darwin)
-LDFLAGS := -L/usr/local/lib -framework OpenGL -lGLEW -lglfw
+LDFLAGS := -L/usr/local/lib -framework OpenGL -lGLEW -lglfw -lglbinding
 endif
 
 TARGET := $(shell basename $(PWD))
