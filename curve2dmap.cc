@@ -560,7 +560,7 @@ int main(int argc, char *argv[])
         
         // render to texture
         glBindFramebuffer(GL_FRAMEBUFFER, fb);
-        //glDrawBuffer(GL_COLOR_ATTACHMENT0);
+        glDrawBuffer(GL_COLOR_ATTACHMENT0);
         glViewport(0, 0, dimx, dimy);
         glClearColor(0.5f, 0.5f, 0.5f, 0.0f);
         glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -583,10 +583,10 @@ int main(int argc, char *argv[])
         glDrawArrays(GL_TRIANGLES, 0, 6);
         glBindVertexArray(0);
 
-	//
-	GLubyte pixels[dimx*dimy*4];
-	glReadBuffer(GL_COLOR_ATTACHMENT0);
-	glReadPixels(0,0,dimx,dimy,GL_RGBA,GL_UNSIGNED_BYTE,pixels);
+        // pixel transfer
+        GLubyte pixels[dimx*dimy*4];
+        glReadBuffer(GL_COLOR_ATTACHMENT0);
+        glReadPixels(0,0,dimx,dimy,GL_RGBA,GL_UNSIGNED_BYTE,pixels);
         
         // Render to screen
         if(b_debug)
@@ -612,7 +612,9 @@ int main(int argc, char *argv[])
         }
         else
         {
-            // load deformation into deform texture (sampler2D)
+            //
+            //---- 2nd pass: load deformation into deform texture (sampler2D)
+            //
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             glViewport(0, 0, width, height);
             glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
