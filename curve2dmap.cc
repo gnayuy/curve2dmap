@@ -582,6 +582,11 @@ int main(int argc, char *argv[])
         glBindVertexArray(vao);
         glDrawArrays(GL_TRIANGLES, 0, 6);
         glBindVertexArray(0);
+
+	//
+	GLubyte pixels[dimx*dimy*4];
+	glReadBuffer(GL_COLOR_ATTACHMENT0);
+	glReadPixels(0,0,dimx,dimy,GL_RGBA,GL_UNSIGNED_BYTE,pixels);
         
         // Render to screen
         if(b_debug)
